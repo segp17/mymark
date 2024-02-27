@@ -5,4 +5,4 @@ pluginManagement {
     }
 }
 
-rootProject.name = "ta"
+rootProject.name = "mymark"
