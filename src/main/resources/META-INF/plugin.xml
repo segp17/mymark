@@ -14,7 +14,9 @@
        Simple HTML elements (text formatting, paragraphs, and lists) can be added inside of <![CDATA[ ]]> tag.
        Guidelines: https://plugins.jetbrains.com/docs/marketplace/plugin-overview-page.html#plugin-description -->
   <description><![CDATA[
-   MyMark extension for automated marking and feedback.
+   MyMark extension for Imperial College London students providing generative feedback.
+
+   The extension tool window contains a chat interface where a user can ask queries regarding the current coding exercise they are working on.
   ]]></description>
 
   <!-- Product and plugin compatibility requirements.
