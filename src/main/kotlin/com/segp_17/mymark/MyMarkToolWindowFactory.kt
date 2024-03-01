@@ -109,6 +109,12 @@ internal class MyMarkToolWindowFactory : ToolWindowFactory, DumbAware {
                 reloadModulesAndExercises()
             }
 
+
+            messageTextField.addActionListener(ActionListener { // This code will be executed when Enter is pressed in the text field
+                val enteredText: String = messageTextField.getText()
+                sendMessage()
+            })
+
             // Edit component properties
 
             chatTextArea.isEditable = false
@@ -313,7 +319,7 @@ internal class MyMarkToolWindowFactory : ToolWindowFactory, DumbAware {
             }
             val localFileSystem = LocalFileSystem.getInstance()
             val baseDir = localFileSystem.findFileByPath(project.basePath!!)
-            val root = FileCheckedTreeNode(project.basePath!!,baseDir!!.name,)
+            val root = FileCheckedTreeNode(project.basePath!!, baseDir!!.name)
             nodeMap[project.basePath!!] = root
             root.isChecked = false
             if (baseDir.isDirectory) {
