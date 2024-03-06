@@ -44,9 +44,18 @@ tasks {
   publishPlugin {
     token.set(System.getenv("PUBLISH_TOKEN"))
   }
+
+  test {
+    useJUnitPlatform()
+  }
 }
 
 dependencies {
+  implementation("com.squareup.okhttp3:okhttp:3.2.0")
   implementation("com.squareup.retrofit2:retrofit:2.9.0")
   implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+  testImplementation(kotlin("test"))
+  testImplementation("org.mockito:mockito-core:5.11.0")
+  testImplementation("com.squareup.okhttp3:okhttp:3.2.0")
+  testImplementation("org.junit.jupiter:junit-jupiter:5.8.1")
 }

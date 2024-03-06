@@ -24,8 +24,7 @@ import javax.swing.*
 import javax.swing.tree.DefaultMutableTreeNode
 
 
-internal class MyMarkToolWindowFactory : ToolWindowFactory, DumbAware {
-
+class MyMarkToolWindowFactory : ToolWindowFactory, DumbAware {
     // Create the tool window content
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
         val toolWindowContent = MyMarkToolWindowContent(toolWindow, project)
@@ -45,15 +44,16 @@ internal class MyMarkToolWindowFactory : ToolWindowFactory, DumbAware {
 
     class MyMarkToolWindowContent(toolWindow: ToolWindow, val project: Project): SimpleToolWindowPanel(true,true) {
         // Intialise JSwing components
-        private val chatTextArea = JTextArea()
+        val chatTextArea = JTextArea()
         private val scrollPane = JBScrollPane(chatTextArea)
-        private val messageTextField = JTextField()
-        private val sendButton = JButton("Send")
+        val messageTextField = JTextField()
+        val sendButton = JButton("Send")
         private lateinit var fileTree: CheckboxTree
         private lateinit var treeScrollPane: JBScrollPane
-        private val moduleDropdown: ComboBox<String>
-        private val exerciseDropdown: ComboBox<String>
+        val moduleDropdown: ComboBox<String>
+        val exerciseDropdown: ComboBox<String>
         private val reloadButton = JButton("Reload")
+        private var foundFiles = false
 
 
         private var topPanel = JPanel(BorderLayout())
@@ -66,10 +66,10 @@ internal class MyMarkToolWindowFactory : ToolWindowFactory, DumbAware {
             .baseUrl(baseUrl)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
-        val apiService = retrofit.create<ApiService>()
+        var apiService = retrofit.create<ApiService>()
 
         // Messages stores conversation
-        private val messages = ArrayList<Message>()
+        val messages = ArrayList<Message>()
 
         // Current file in focus
         private var currentFile: String? = null
@@ -78,8 +78,8 @@ internal class MyMarkToolWindowFactory : ToolWindowFactory, DumbAware {
         private val nodeMap: MutableMap<String,FileCheckedTreeNode> = HashMap()
 
         // Arrays of module and exercise names
-        private var modules: Array<String> = arrayOf("Loading...")
-        private var exercises: Array<String> = arrayOf("Loading...")
+        var modules: Array<String> = arrayOf("Loading...")
+        var exercises: Array<String> = arrayOf("Loading...")
 
         private var waitingForResponse = false
 
@@ -97,6 +97,9 @@ internal class MyMarkToolWindowFactory : ToolWindowFactory, DumbAware {
             exerciseDropdown = ComboBox(exercises)
 
             moduleDropdown.addActionListener { // Code to be executed when the selected option changes
+                exercises = arrayOf("Loading...")
+                val newDropdown = ComboBox(exercises)
+                exerciseDropdown.model = newDropdown.model
                 updateExercises()
             }
 
@@ -112,7 +115,9 @@ internal class MyMarkToolWindowFactory : ToolWindowFactory, DumbAware {
 
             messageTextField.addActionListener(ActionListener { // This code will be executed when Enter is pressed in the text field
                 val enteredText: String = messageTextField.getText()
-                sendMessage()
+                if (sendButton.isEnabled) {
+                    sendMessage()
+                }
             })
 
             // Edit component properties
@@ -164,29 +169,32 @@ internal class MyMarkToolWindowFactory : ToolWindowFactory, DumbAware {
         }
 
         // Make requests to update modules
-        private fun updateModules() {
+        fun updateModules() {
 
             val call = apiService.fetchModules()
             call.enqueue(object : Callback<Modules> {
                 override fun onResponse(call: Call<Modules>, response: Response<Modules>) {
-                    if (response.isSuccessful) {
+                    if (response.isSuccessful && response.body()!!.modules.isNotEmpty()) {
                         modules = response.body()!!.modules
                         val newModuleDropdown = ComboBox(modules)
                         moduleDropdown.model = newModuleDropdown.model
+                        moduleDropdown.selectedItem = modules[0]
                         updateExercises()
                     } else {
                         modules = arrayOf("Connection Error")
-                        exercises = arrayOf()
-                        val newModuleDropdown = ComboBox(modules)
-                        moduleDropdown.model = newModuleDropdown.model
+                        exercises = arrayOf("Connection Error")
+                        sendButton.isEnabled = false
                         val newExerciseDropdown = ComboBox(exercises)
                         exerciseDropdown.model = newExerciseDropdown.model
+                        val newModuleDropdown = ComboBox(modules)
+                        moduleDropdown.model = newModuleDropdown.model
                     }
                 }
 
                 override fun onFailure(call: Call<Modules>, t: Throwable) {
                     modules = arrayOf("Connection Error")
-                    exercises = arrayOf()
+                    exercises = arrayOf("Connection Error")
+                    sendButton.isEnabled = false
                     val newExerciseDropdown = ComboBox(exercises)
                     exerciseDropdown.model = newExerciseDropdown.model
                     val newModuleDropdown = ComboBox(modules)
@@ -196,32 +204,38 @@ internal class MyMarkToolWindowFactory : ToolWindowFactory, DumbAware {
         }
 
         // Get initial exercises from first module in list
-        private fun updateExercises(){
-            if (modules.isNotEmpty() && (moduleDropdown.selectedItem as String) != "Connection Error") {
+        fun updateExercises(){
+            if (modules.isNotEmpty() && (modules[0] != "Connection Error")) {
                         val call = apiService.fetchExercises(moduleDropdown.selectedItem as String)
                         call.enqueue(object : Callback<Exercises> {
                             override fun onResponse(call: Call<Exercises>, response: Response<Exercises>) {
-                                exercises = if (response.isSuccessful) {
-                                    response.body()!!.exercises
-                                } else {
-                                    arrayOf("Connection Error")
+                                if (response.isSuccessful) {
+                                    exercises = response.body()!!.exercises
+                                    sendButton.isEnabled = exercises.isNotEmpty() && !waitingForResponse
+                                } else if (!response.isSuccessful){
+                                    exercises = arrayOf("Connection Error")
+                                    sendButton.isEnabled = false
                                 }
                                 val newExerciseDropdown = ComboBox(exercises)
                                 exerciseDropdown.model = newExerciseDropdown.model
-                                // disable/enable send button
-                                if (modules.isEmpty() || exercises.isEmpty()) {
-                                    sendButton.isEnabled = false;
-                                } else if (!waitingForResponse){
-                                    sendButton.isEnabled = true;
+                                exerciseDropdown.selectedItem = if (response.isSuccessful && response.body()!!.exercises.isNotEmpty()) {
+                                    exercises[0]
+                                } else {
+                                    null
                                 }
+                                // disable/enable send button
                             }
-
                             override fun onFailure(call: Call<Exercises>, t: Throwable) {
                                 exercises = arrayOf("Connection Error")
                                 val newExerciseDropdown = ComboBox(exercises)
                                 exerciseDropdown.model = newExerciseDropdown.model
+                                sendButton.isEnabled = false
                             }
                         })
+            } else if (modules.isNotEmpty()){
+                exercises = arrayOf("Connection Error")
+                val newExerciseDropdown = ComboBox(exercises)
+                exerciseDropdown.model = newExerciseDropdown.model
             } else {
                 exercises = arrayOf()
                 val newExerciseDropdown = ComboBox(exercises)
@@ -234,22 +248,20 @@ internal class MyMarkToolWindowFactory : ToolWindowFactory, DumbAware {
         }
 
         // Sends message to backend server
-        private fun sendMessage() {
+        fun sendMessage() {
             val message = messageTextField.text
             if (message.isNotEmpty() && moduleDropdown.selectedItem != null && exerciseDropdown.selectedItem != null) {
                 chatTextArea.append("User: $message\n\n")
                 messageTextField.text = ""
                 sendButton.isEnabled = false
-            } else if (moduleDropdown.selectedItem == null || exerciseDropdown.selectedItem == null){
-                sendButton.isEnabled = false
-                return
-            }  else {
+            } else {
                 return
             }
 
             val codeContents = getCodeContents()
             val newMessage = Message("user", message)
             messages.add(newMessage)
+
             val question = QuestionData(codeContents, messages)
 
             val call = apiService.askQuestion(question, exerciseDropdown.selectedItem as String, moduleDropdown.selectedItem as String)
@@ -278,6 +290,11 @@ internal class MyMarkToolWindowFactory : ToolWindowFactory, DumbAware {
 
         // Gets the currently focused file and updates attribute, also updates tree
         fun getCurrentFile() {
+            val fileManager = FileEditorManager.getInstance(project)
+            if  (fileManager == null) {
+                currentFile = null
+                return
+            }
             val file = FileEditorManager.getInstance(project).selectedEditor?.file
             if (file != null) {
                 if (nodeMap[currentFile] != null) {
@@ -313,12 +330,13 @@ internal class MyMarkToolWindowFactory : ToolWindowFactory, DumbAware {
         }
 
         // Builds nodes of file tree recursively
-        private fun buildTreeNew(): FileCheckedTreeNode? {
+        private fun buildTreeNew(): FileCheckedTreeNode {
             if (project.basePath == null) {
-                return null
+                return FileCheckedTreeNode("no project found", "no project found")
             }
             val localFileSystem = LocalFileSystem.getInstance()
             val baseDir = localFileSystem.findFileByPath(project.basePath!!)
+                ?: return FileCheckedTreeNode("no project found", "no project found")
             val root = FileCheckedTreeNode(project.basePath!!, baseDir!!.name)
             nodeMap[project.basePath!!] = root
             root.isChecked = false
@@ -328,6 +346,7 @@ internal class MyMarkToolWindowFactory : ToolWindowFactory, DumbAware {
                     root.add(childNode)
                 }
             }
+            foundFiles = true
             return root
         }
 
@@ -361,6 +380,9 @@ internal class MyMarkToolWindowFactory : ToolWindowFactory, DumbAware {
 
         // Gets code contents of all selected files
         private fun getCodeContents():String {
+            if (!foundFiles) {
+                return ""
+            }
             val filePaths = fileTree.getCheckedNodes(String::class.java,null)
             val sb = StringBuilder()
             for (filePath in filePaths) {
