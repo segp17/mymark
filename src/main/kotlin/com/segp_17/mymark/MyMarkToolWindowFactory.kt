@@ -13,13 +13,16 @@ import com.intellij.openapi.wm.ex.ToolWindowManagerListener
 import com.intellij.ui.CheckboxTree
 import com.intellij.ui.CheckboxTree.CheckboxTreeCellRenderer
 import com.intellij.ui.CheckedTreeNode
+import com.intellij.ui.JBColor
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.content.ContentFactory
+import okhttp3.OkHttpClient
 import retrofit2.*
 import retrofit2.converter.gson.GsonConverterFactory
 import java.awt.*
 import java.awt.event.ActionListener
 import java.io.File
+import java.util.concurrent.TimeUnit
 import javax.swing.*
 import javax.swing.tree.DefaultMutableTreeNode
 
@@ -62,8 +65,17 @@ class MyMarkToolWindowFactory : ToolWindowFactory, DumbAware {
 
         // Create API Service
         private val baseUrl = "http://146.169.43.198:8080/"
+
+        val okHttpClient = OkHttpClient.Builder()
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(60, TimeUnit.SECONDS)
+            .writeTimeout(60, TimeUnit.SECONDS)
+            .build()
+
+        // Use the custom OkHttpClient with Retrofit
         private val retrofit: Retrofit = Retrofit.Builder()
             .baseUrl(baseUrl)
+            .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
         var apiService = retrofit.create<ApiService>()
@@ -121,7 +133,9 @@ class MyMarkToolWindowFactory : ToolWindowFactory, DumbAware {
             })
 
             // Edit component properties
-
+            val font = Font("Arial", Font.PLAIN, 16)
+            chatTextArea.setForeground(JBColor.BLUE);
+            chatTextArea.setFont(font)
             chatTextArea.isEditable = false
             chatTextArea.setLineWrap(true); // Enable line wrap
             chatTextArea.setWrapStyleWord(true); // Wrap at word boundaries
@@ -284,6 +298,7 @@ class MyMarkToolWindowFactory : ToolWindowFactory, DumbAware {
                     chatTextArea.append("MyMark: An ERROR occurred, please try again\n\n")
                     sendButton.isEnabled = true
                     waitingForResponse = false
+                    throw t
                 }
             })
         }
