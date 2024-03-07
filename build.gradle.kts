@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.segp_17"
-version = "1.0.1-SNAPSHOT"
+version = "1.0.2-SNAPSHOT"
 
 repositories {
   mavenCentral()
@@ -51,11 +51,13 @@ tasks {
 }
 
 dependencies {
+  implementation("com.github.rjeschke:txtmark:0.13")
   implementation("com.squareup.okhttp3:okhttp:3.2.0")
   implementation("com.squareup.retrofit2:retrofit:2.9.0")
   implementation("com.squareup.retrofit2:converter-gson:2.9.0")
   testImplementation(kotlin("test"))
   testImplementation("org.mockito:mockito-core:5.11.0")
   testImplementation("com.squareup.okhttp3:okhttp:3.2.0")
+  testImplementation("org.junit.jupiter:junit-jupiter:5.8.1")
   testImplementation("org.junit.jupiter:junit-jupiter:5.8.1")
 }

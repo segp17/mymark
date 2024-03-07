@@ -1,5 +1,6 @@
 package com.segp_17.mymark
 
+import com.github.rjeschke.txtmark.Processor
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.FileEditorManagerListener
 import com.intellij.openapi.project.DumbAware
@@ -13,7 +14,6 @@ import com.intellij.openapi.wm.ex.ToolWindowManagerListener
 import com.intellij.ui.CheckboxTree
 import com.intellij.ui.CheckboxTree.CheckboxTreeCellRenderer
 import com.intellij.ui.CheckedTreeNode
-import com.intellij.ui.JBColor
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.content.ContentFactory
 import okhttp3.OkHttpClient
@@ -22,8 +22,12 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.awt.*
 import java.awt.event.ActionListener
 import java.io.File
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 import javax.swing.*
+import javax.swing.text.BadLocationException
+import javax.swing.text.html.HTMLDocument
+import javax.swing.text.html.HTMLEditorKit
 import javax.swing.tree.DefaultMutableTreeNode
 
 
@@ -47,7 +51,7 @@ class MyMarkToolWindowFactory : ToolWindowFactory, DumbAware {
 
     class MyMarkToolWindowContent(toolWindow: ToolWindow, val project: Project): SimpleToolWindowPanel(true,true) {
         // Intialise JSwing components
-        val chatTextArea = JTextArea()
+        val chatTextArea = JTextPane()
         private val scrollPane = JBScrollPane(chatTextArea)
         val messageTextField = JTextField()
         val sendButton = JButton("Send")
@@ -67,7 +71,7 @@ class MyMarkToolWindowFactory : ToolWindowFactory, DumbAware {
         private val baseUrl = "http://146.169.43.198:8080/"
 
         val okHttpClient = OkHttpClient.Builder()
-            .connectTimeout(30, TimeUnit.SECONDS)
+            .connectTimeout(3, TimeUnit.SECONDS)
             .readTimeout(60, TimeUnit.SECONDS)
             .writeTimeout(60, TimeUnit.SECONDS)
             .build()
@@ -126,19 +130,18 @@ class MyMarkToolWindowFactory : ToolWindowFactory, DumbAware {
 
 
             messageTextField.addActionListener(ActionListener { // This code will be executed when Enter is pressed in the text field
-                val enteredText: String = messageTextField.getText()
                 if (sendButton.isEnabled) {
                     sendMessage()
                 }
             })
 
             // Edit component properties
-            val font = Font("Arial", Font.PLAIN, 16)
-            chatTextArea.setForeground(JBColor.BLUE);
+            val font = Font("Arial", Font.PLAIN, 20)
             chatTextArea.setFont(font)
+            val fontfamily: String = chatTextArea.getFont().getFamily()
+            chatTextArea.text = "<html><body style=\"font-family: $fontfamily\"</html>";
+            chatTextArea.contentType = "text/html"
             chatTextArea.isEditable = false
-            chatTextArea.setLineWrap(true); // Enable line wrap
-            chatTextArea.setWrapStyleWord(true); // Wrap at word boundaries
             scrollPane.preferredSize = Dimension(100,200)
             sendButton.isEnabled = false;
 
@@ -156,18 +159,17 @@ class MyMarkToolWindowFactory : ToolWindowFactory, DumbAware {
         // Setup file tree
         private fun setupTree() {
             val root = buildTreeNew()
-            if (root != null) {
-                fileTree = CheckboxTree(FileCheckboxTreeCellRenderer(), root)
-                fileTree.isRootVisible = true
+            fileTree = CheckboxTree(FileCheckboxTreeCellRenderer(), root)
+            fileTree.isRootVisible = true
 
                 // Record when file is checked/unchecked
 //            fileTree.addCheckboxTreeListener(object : CheckboxTreeListener {
 //                override fun nodeStateChanged(node: CheckedTreeNode) {
 //                }
 //            })
-                fileTree.visibleRowCount = 10
-                treeScrollPane = JBScrollPane(fileTree)
-            }
+            fileTree.visibleRowCount = 10
+            treeScrollPane = JBScrollPane(fileTree)
+
         }
 
         private fun gridBagConstraints(fill: Int, weightx: Double, weighty: Double, gridx: Int, gridy: Int, gridheight: Int, gridwidth: Int): GridBagConstraints {
@@ -180,6 +182,18 @@ class MyMarkToolWindowFactory : ToolWindowFactory, DumbAware {
             gbc.gridheight = gridheight
             gbc.gridwidth = gridwidth
             return gbc
+        }
+
+        private fun appendTextToPane(text: String) {
+            val doc: HTMLDocument = chatTextArea.document as HTMLDocument
+            val editorKit = chatTextArea.getEditorKit() as HTMLEditorKit
+            try {
+                editorKit.insertHTML(doc, doc.length, text, 0, 0, null)
+            } catch (ex: BadLocationException) {
+                ex.printStackTrace()
+            } catch (ex: IOException) {
+                ex.printStackTrace()
+            }
         }
 
         // Make requests to update modules
@@ -265,7 +279,8 @@ class MyMarkToolWindowFactory : ToolWindowFactory, DumbAware {
         fun sendMessage() {
             val message = messageTextField.text
             if (message.isNotEmpty() && moduleDropdown.selectedItem != null && exerciseDropdown.selectedItem != null) {
-                chatTextArea.append("User: $message\n\n")
+                val processedMessage = Processor.process(message).replace(Regex("^<p>|</p>\$"), "")
+                appendTextToPane("<p><b><font color='#0EAA00'>User</font></b>: ${processedMessage}\n\n</p>")
                 messageTextField.text = ""
                 sendButton.isEnabled = false
             } else {
@@ -277,17 +292,17 @@ class MyMarkToolWindowFactory : ToolWindowFactory, DumbAware {
             messages.add(newMessage)
 
             val question = QuestionData(codeContents, messages)
-
             val call = apiService.askQuestion(question, exerciseDropdown.selectedItem as String, moduleDropdown.selectedItem as String)
             waitingForResponse = true
             call.enqueue(object : Callback<Answer> {
                 override fun onResponse(call: Call<Answer>, response: Response<Answer>) {
                     if (response.isSuccessful) {
                         messages.add(Message("assistant", response.body()!!.answer))
-                        chatTextArea.append("MyMark: ${response.body()!!.answer}\n\n")
+                        val processedMessage = Processor.process(response.body()!!.answer).replace(Regex("^<p>|</p>\$"), "")
+                        appendTextToPane("<p><b><font color='#8AA4C8'>MyMark</font></b>: ${processedMessage}\n\n</p>")
                     } else {
                         messages.remove(newMessage)
-                        chatTextArea.append("MyMark: An ERROR occurred, please try again\n\n")
+                        appendTextToPane("<p><b><font color='#8AA4C8'>MyMark</font></b>: <font color='red'>An ERROR occurred, please try again</font>\n\n</p>")
                     }
                     waitingForResponse = false
                     sendButton.isEnabled = true
@@ -295,10 +310,9 @@ class MyMarkToolWindowFactory : ToolWindowFactory, DumbAware {
 
                 override fun onFailure(call: Call<Answer>, t: Throwable) {
                     messages.remove(newMessage)
-                    chatTextArea.append("MyMark: An ERROR occurred, please try again\n\n")
+                    appendTextToPane("<p><b><font color='#8AA4C8'>MyMark</font</b>>: <font color='red'>An ERROR occurred, please try again</font>\n\n</p>")
                     sendButton.isEnabled = true
                     waitingForResponse = false
-                    throw t
                 }
             })
         }
@@ -352,7 +366,7 @@ class MyMarkToolWindowFactory : ToolWindowFactory, DumbAware {
             val localFileSystem = LocalFileSystem.getInstance()
             val baseDir = localFileSystem.findFileByPath(project.basePath!!)
                 ?: return FileCheckedTreeNode("no project found", "no project found")
-            val root = FileCheckedTreeNode(project.basePath!!, baseDir!!.name)
+            val root = FileCheckedTreeNode(project.basePath!!, baseDir.name)
             nodeMap[project.basePath!!] = root
             root.isChecked = false
             if (baseDir.isDirectory) {

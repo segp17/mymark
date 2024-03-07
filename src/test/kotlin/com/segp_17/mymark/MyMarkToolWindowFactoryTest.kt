@@ -329,7 +329,7 @@ class MyMarkToolWindowContentTest {
             callback.onResponse(mockQuestionCall, Response.success(Answer("42")))
         }
         toolWindowContent.sendMessage()
-
+        println(toolWindowContent.chatTextArea.text)
         assert(toolWindowContent.chatTextArea.text.contains("Hotel?"))
         assert(toolWindowContent.chatTextArea.text.contains("42"))
         assertEquals(toolWindowContent.messages.get(toolWindowContent.messages.size - 2).content,"Hotel?")
