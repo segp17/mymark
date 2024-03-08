@@ -68,7 +68,7 @@ class MyMarkToolWindowFactory : ToolWindowFactory, DumbAware {
         private val rowPanel = JPanel(FlowLayout())
 
         // Create API Service
-        private val baseUrl = "http://146.169.43.198:8080/"
+        private val baseUrl = "http://146.169.43.220:8080/"
 
         val okHttpClient = OkHttpClient.Builder()
             .connectTimeout(3, TimeUnit.SECONDS)
