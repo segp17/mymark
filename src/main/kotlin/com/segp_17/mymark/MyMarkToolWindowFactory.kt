@@ -317,7 +317,7 @@ class MyMarkToolWindowFactory : ToolWindowFactory, DumbAware {
 
                 override fun onFailure(call: Call<Answer>, t: Throwable) {
                     messages.remove(newMessage)
-                    appendTextToPane("<p><b><font color='#8AA4C8'>MyMark</font</b>>: <font color='red'>A connection error occurred, please try again</font>\n\n</p>")
+                    appendTextToPane("<p><b><font color='#8AA4C8'>MyMark</font></b>: <font color='red'>A connection error occurred, please try again</font>\n\n</p>")
                     sendButton.isEnabled = true
                     waitingForResponse = false
                 }
