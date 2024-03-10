@@ -294,6 +294,10 @@ class MyMarkToolWindowFactory : ToolWindowFactory, DumbAware {
             val question = QuestionData(codeContents, messages)
             val call = apiService.askQuestion(question, exerciseDropdown.selectedItem as String, moduleDropdown.selectedItem as String)
             waitingForResponse = true
+            var instant: java.time.Instant = java.time.Instant.now()
+            val t1 = instant.toEpochMilli()
+            println("Question length: ${message.length}")
+            println("Code length: ${codeContents.length}")
             call.enqueue(object : Callback<Answer> {
                 override fun onResponse(call: Call<Answer>, response: Response<Answer>) {
                     if (response.isSuccessful) {
@@ -306,6 +310,9 @@ class MyMarkToolWindowFactory : ToolWindowFactory, DumbAware {
                     }
                     waitingForResponse = false
                     sendButton.isEnabled = true
+                    instant = java.time.Instant.now()
+                    val t2 = instant.toEpochMilli()
+                    println("Response took: ${t2-t1} milliseconds")
                 }
 
                 override fun onFailure(call: Call<Answer>, t: Throwable) {
